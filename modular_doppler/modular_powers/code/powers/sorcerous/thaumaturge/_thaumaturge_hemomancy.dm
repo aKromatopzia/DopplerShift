@@ -7,6 +7,7 @@
 	resource_display_mode = THAUMATURGE_RESOURCE_DISPLAY_PREP_COST
 	additional_magic_resistance_flags = MAGIC_RESISTANCE_HOLY
 	resource_display_multiplier = THAUMATURGE_HEMOMANCY_BLOOD_COST_MULTIPLIER
+	action_background_icon_state_override = "bg_thaumaturge_hemomancy"
 
 	/// HUD element that shows current blood amount.
 	var/atom/movable/screen/hemophage/blood/thaumaturge/blood_tracker
@@ -43,6 +44,7 @@
 	if(!attached_mob?.hud_used)
 		return
 	var/datum/hud/hud_used = attached_mob.hud_used
+	var/hud_changed = FALSE
 
 	// Hemomancy replaces the generic hemophage tracker, but should not touch any
 	// unrelated HUD element or its own subtype.
@@ -51,6 +53,7 @@
 			continue
 		hud_used.infodisplay -= existing_tracker
 		qdel(existing_tracker)
+		hud_changed = TRUE
 
 	// If our tracker was qdeleted externally, clear stale ref.
 	if(QDELETED(blood_tracker))
@@ -59,11 +62,23 @@
 	// Create ours if missing.
 	if(!blood_tracker)
 		blood_tracker = new /atom/movable/screen/hemophage/blood/thaumaturge(null, hud_used)
+		hud_changed = TRUE
 
 	// Ensure ours is in infodisplay.
 	if(!(blood_tracker in hud_used.infodisplay))
 		hud_used.infodisplay += blood_tracker
+		hud_changed = TRUE
 
+	if(hud_changed)
+		show_blood_tracker_hud()
+	return hud_changed
+
+/// Reapplies the HUD of the blood tracker.
+/// This causes screen flashing so minimize use.
+/datum/component/thaumaturge/hemomancy/proc/show_blood_tracker_hud()
+	if(!attached_mob?.hud_used)
+		return
+	var/datum/hud/hud_used = attached_mob.hud_used
 	hud_used.show_hud(hud_used.hud_version)
 
 /// Updates the blood tracker with new numbers +
@@ -96,7 +111,8 @@
 /// Updates on owner login.
 /datum/component/thaumaturge/hemomancy/proc/on_owner_login(mob/living/source)
 	SIGNAL_HANDLER
-	ensure_blood_tracker()
+	if(!ensure_blood_tracker())
+		show_blood_tracker_hud()
 	update_blood_tracker()
 
 /// Gets the blood cost for a thaumaturge action.

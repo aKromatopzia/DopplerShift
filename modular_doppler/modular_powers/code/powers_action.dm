@@ -7,11 +7,12 @@
 */
 /datum/action/cooldown/power
 	name = "abstract power action - ahelp this"
-	background_icon_state = "bg_revenant"
-	overlay_icon_state = "bg_revenant_border"
-	button_icon = 'icons/mob/actions/backgrounds.dmi'
+	background_icon_state = "bg_default"
+	overlay_icon_state = "bg_default_border"
 	active_overlay_icon_state = "bg_spell_border_active_red"
 	ranged_mousepointer = 'icons/effects/mouse_pointers/weapon_pointer.dmi'
+	background_icon = 'modular_doppler/modular_powers/icons/powers/backgrounds.dmi'
+	overlay_icon = 'modular_doppler/modular_powers/icons/powers/backgrounds.dmi'
 
 	/// Maximum state of consciousness before the ability is blocked.
 	/// For example, `UNCONSCIOUS` prevents it from being used when in hard crit or dead,
@@ -19,18 +20,22 @@
 	var/req_stat = CONSCIOUS
 	/// If your power has an active state of any type, use this.
 	var/active
-	/// Is this a resonant ability (read: magical)? Determines if this ability stop working if you are silenced and if we check against target magic immunites.
-	var/resonant = TRUE
 	/// Does this ability stop working if you are incapacitated?
 	var/disabled_by_incapacitate = TRUE
 	/// What power is the origin?
-	var/origin_power
+	var/datum/power/origin_power
+	/// Healing multiplier collected and snapshotted when a healing power heals a mob.
+	var/healing_multiplier = 1
 	/// Can only humans use this power?
 	var/human_only = TRUE
 	/// Can we target ourselves?
 	var/target_self = TRUE
 	/// Do we need our hands free?
 	var/need_hands_free = TRUE
+	/// Do we need to be on a turf (not inside something) to use this power?
+	var/needs_to_stand_on_turf = TRUE
+	/// Bypasses the normal specified cooldown when set to TRUE. Useful if you don't want powers to always go on cooldown.
+	var/no_cooldown_on_use
 
 	/// If set, we must wait this long before use_action executes. Cast time basically.
 	var/use_time = 0
@@ -47,8 +52,61 @@
 	var/aim_assist = TRUE
 	/// Do we check for anti magic on the target when we target them? Basically if your action targets but doesn't do anything directly magical to them immediately (like projectiles), this should be false.
 	var/anti_magic_on_target = TRUE
-	/// Magic resistance flags checked on target during try_use. This should mostly just be holy and mental, since normal magic resistance is checked in can_block_resonance()
-	var/magic_resistance_types
+	/// Extra antimagic types checked on target when the action is used.
+	var/magic_resistance_types = NONE
+
+/datum/action/cooldown/power/New(datum/new_origin_power)
+	if(istype(new_origin_power, /datum/power))
+		origin_power = new_origin_power
+	else
+		origin_power = null
+	sync_magic_resistance_types_from_power()
+	return ..()
+
+/// Whether the action is treated as magical for silence and baseline antimagic checks.
+/datum/action/cooldown/power/proc/is_magical()
+	return !!magic_resistance_types
+
+/// Maps the host power's magic flags into our action's antimagic bitflag.
+/datum/action/cooldown/power/proc/sync_magic_resistance_types_from_power()
+	// If there is no power directly tied to it e.g meditate
+	if(!origin_power)
+		magic_resistance_types = NONE
+		return magic_resistance_types
+
+	var/power_magic_flags = origin_power?.magic_flags || NONE
+	magic_resistance_types = NONE
+
+	if(power_magic_flags & POWER_MAGIC_STANDARD)
+		magic_resistance_types |= MAGIC_RESISTANCE
+	if(power_magic_flags & POWER_MAGIC_MENTAL)
+		magic_resistance_types |= MAGIC_RESISTANCE_MIND
+	if(power_magic_flags & POWER_MAGIC_UNHOLY)
+		magic_resistance_types |= MAGIC_RESISTANCE_HOLY
+
+	return magic_resistance_types
+
+/// Snapshots additive and multiplicative healing modifiers for this power's current mob-healing calculation.
+/datum/action/cooldown/power/proc/snapshot_healing_multiplier(atom/healing_target)
+	healing_multiplier = 1
+	if(!(origin_power?.power_flags & POWER_HEALING) || !owner)
+		return healing_multiplier
+
+	var/list/additive_healing_modifiers = list()
+	var/list/multiplicative_healing_modifiers = list()
+	SEND_SIGNAL(owner, COMSIG_POWER_HEALING_MODIFIERS, healing_target, additive_healing_modifiers, multiplicative_healing_modifiers)
+
+	for(var/additive_healing_modifier in additive_healing_modifiers)
+		healing_multiplier += additive_healing_modifier
+
+	// Compound all multiplicative bonus factors together, then apply the combined factor to the additive result in one batch.
+	var/combined_multiplicative_factor = 1
+	for(var/multiplicative_healing_modifier in multiplicative_healing_modifiers)
+		combined_multiplicative_factor *= (1 + multiplicative_healing_modifier)
+	healing_multiplier *= combined_multiplicative_factor
+
+	healing_multiplier = max(0, healing_multiplier)
+	return healing_multiplier
 
 /// Attempts to actively use the action by pathing through validation, antimagic, do_use_time and finally use_action
 /datum/action/cooldown/power/proc/try_use(mob/living/user, atom/target)
@@ -58,11 +116,11 @@
 	// Checking for anti-resonance/anti-magic below which really is a pain.
 	if(anti_magic_on_target && ismob(target) && target != user) // If the spell checks antimagic, and if the target is a mob, and if the target is not us.
 		var/mob/mob_target = target
-		if(resonant && mob_target.can_block_resonance(1)) // Resonance checks are handled by the resonant var.
+		if(is_magical() && mob_target.can_block_resonance(1)) // Resonance checks are handled by the owning power's flags.
 			// I would like to deduct resources on spell fail, but I have no good way of implementing it during the validation layer when most costs happen in the on_action_success layer. TODO for the future chap who wants this.
 			return FALSE
 		// Checks against magic resistances beyond the standard above.
-		if(resonant && magic_resistance_types && mob_target.can_block_magic(magic_resistance_types, charge_cost = 0))
+		if(is_magical() && magic_resistance_types && mob_target.can_block_magic(magic_resistance_types, charge_cost = 0))
 			return FALSE
 	if(!do_use_time(user, target))
 		return FALSE
@@ -84,11 +142,14 @@
 	if(disabled_by_incapacitate && HAS_TRAIT(user, TRAIT_INCAPACITATED))
 		owner.balloon_alert(user, "incapacitated!")
 		return FALSE
-	if(resonant && HAS_TRAIT(user, TRAIT_RESONANCE_SILENCED))
+	if(is_magical() && HAS_TRAIT(user, TRAIT_RESONANCE_SILENCED))
 		owner.balloon_alert(user, "silenced!")
 		return FALSE
 	if(need_hands_free && HAS_TRAIT(user, TRAIT_HANDS_BLOCKED))
 		owner.balloon_alert(user, "restrained!")
+		return FALSE
+	if(needs_to_stand_on_turf && !isturf(user.loc))
+		owner.balloon_alert(user, "occupied!")
 		return FALSE
 	if(req_stat < user.stat) // Whilst this seems similiar to trait_incapacitated, it is also used to check if you're dead in the event that disable_by_incapacitate is false. No corpses using powers!
 		owner.balloon_alert(user, "incapacitated!")
@@ -154,6 +215,20 @@
  * Trigger() -> PreActivate(owner) -> Activate(owner) -> try_use(user, target)
  * Click-activated powers DO NOT route through this; they use InterceptClickOn below.
  */
+/// We add a special override so we can always unset click abilities even if they're on cooldown
+/datum/action/cooldown/power/Trigger(mob/clicker, trigger_flags, atom/target)
+	if(click_to_activate && !target)
+		var/mob/user = clicker || owner
+		if(!user)
+			return FALSE
+
+		var/datum/action/cooldown/already_set = user.click_intercept
+		if(already_set == src)
+			// Powers should always be able to be toggled off again, even while their cooldown is running.
+			return unset_click_ability(user, refund_cooldown = TRUE)
+
+	return ..()
+
 /datum/action/cooldown/power/Activate(atom/target)
 	var/mob/living/user = owner
 	if(!user)
@@ -163,7 +238,10 @@
 	if(!try_use(user, target = null))
 		return FALSE
 
-	StartCooldown()
+	// Support for bypassing cooldowns on use.
+	if(!no_cooldown_on_use)
+		StartCooldown()
+
 	return TRUE
 
 /** Intercepts client owner clicks to activate the ability.
@@ -303,6 +381,7 @@ Projectile action code down below
 	if(istype(projectile_instance, /obj/projectile/resonant))
 		var/obj/projectile/resonant/resonant_proj = projectile_instance
 		resonant_proj.creating_power = src
+		resonant_proj.snapshot_power_state(src)
 		resonant_proj.antimagic_flags = magic_resistance_types
 
 	// If you want “on hit” logic for your power, hook it here.
@@ -318,5 +397,3 @@ Projectile action code down below
 /// Anything that should otherwise happen normally on projectile hit should preferably be handled in /obj/projectile/.../on_hit
 /datum/action/cooldown/power/proc/on_projectile_hit(datum/source, mob/firer, atom/target, angle, hit_limb)
 	return
-
-

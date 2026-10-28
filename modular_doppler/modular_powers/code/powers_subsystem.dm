@@ -122,14 +122,22 @@ PROCESSING_SUBSYSTEM_DEF(powers)
 			continue
 		powers[initial(power_type.name)] = power_type
 
-/// Assigns all powers in the player's preferences onto the mob.
-/datum/controller/subsystem/processing/powers/proc/assign_powers(mob/living/user, client/applied_client)
+/**
+ * Assigns all powers in the player's preferences onto the mob and records the powers successfully granted.
+ *
+ * Arguments:
+ * * user - Mob receiving the powers.
+ * * applied_client - Client whose preferences are being applied.
+ * * source - Broad context in which the mob is receiving its powers.
+ */
+/datum/controller/subsystem/processing/powers/proc/assign_powers(mob/living/user, client/applied_client, source = POWER_SOURCE_OTHER)
 	// No powers are given if the admins have turned on power spawning.
 	if(!spawn_powers_enabled)
 		return
 
 	var/bad_power = FALSE
 	var/list/powers_by_priority = list()
+	var/list/assigned_power_names = list()
 	for(var/power_name in applied_client.prefs.all_powers)
 		var/datum/power/power_type = powers[power_name]
 		if(!ispath(power_type))
@@ -154,7 +162,22 @@ PROCESSING_SUBSYSTEM_DEF(powers)
 		for(var/datum/power/power_type as anything in priority_powers)
 			if(!user.add_archetype_power(power_type, client_source = applied_client))
 				continue
-			SSblackbox.record_feedback("tally", "powers_taken", 1, "[power_type.name]")
+			assigned_power_names += power_type.name
+
+	// Gets the mob's species for the blackbox
+	var/species_name = "Non-human"
+	if(ishuman(user))
+		var/mob/living/carbon/human/human_user = user
+		species_name = human_user.dna?.species?.name || "Unknown"
+
+	// Adds the whole loadout, the name of the person and their role to the loadout.
+	SSblackbox.record_feedback("associative", "power_spawn_loadouts", 1, list(
+		"source" = source,
+		"mob_name" = user.real_name || user.name || "Unknown",
+		"role" = user.mind?.assigned_role?.title || "Unassigned",
+		"species" = species_name,
+		"powers" = assigned_power_names,
+	))
 
 /// Takes a list of power names,
 /// and returns a new list of powers that would be valid.
@@ -190,8 +213,9 @@ PROCESSING_SUBSYSTEM_DEF(powers)
 			LAZYADD(powers_removed, "Power point limit exceeded.")
 			return list()
 
-		// Make sure we only have up to two distinct paths.
-		if(!(power_type.path in unique_paths))
+		// Checks if we have no more than 2 paths, unless the path datum explicitly opts out.
+		var/datum/power_path/path_data = GLOB.power_paths_by_define[power_type.path]
+		if(!path_data?.path_limit_exempt && !(power_type.path in unique_paths))
 			if(length(unique_paths) >= 2)
 				continue // Third distinct path, discard.
 			unique_paths[power_type.path] = TRUE

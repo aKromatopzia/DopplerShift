@@ -31,7 +31,6 @@
 	for(var/obj/item/bodypart/bodypart as anything in human_holder.bodyparts)
 		on_gain_limb(src, bodypart, special = FALSE)
 
-	human_holder.blood_volume_normal = BLOOD_VOLUME_OVERSIZED
 	human_holder.physiology.hunger_mod *= OVERSIZED_HUNGER_MOD //50% hungrier
 	human_holder.add_movespeed_modifier(/datum/movespeed_modifier/oversized)
 
@@ -50,6 +49,7 @@
 	var/obj/item/organ/stomach/charging/potential_charger = human_holder.get_organ_slot(ORGAN_SLOT_STOMACH)
 	if(istype(potential_charger))
 		potential_charger.become_oversized()
+	ADD_TRAIT(human_holder, TRAIT_MOUNTED_GUN_FREESTYLE, REF(src))
 
 /datum/quirk/oversized/remove()
 	var/mob/living/carbon/human/human_holder = quirk_holder
@@ -83,7 +83,6 @@
 
 	UnregisterSignal(human_holder, COMSIG_CARBON_POST_ATTACH_LIMB)
 
-	human_holder.blood_volume_normal = BLOOD_VOLUME_NORMAL
 	human_holder.physiology.hunger_mod /= OVERSIZED_HUNGER_MOD
 	human_holder.remove_movespeed_modifier(/datum/movespeed_modifier/oversized)
 	human_holder.remove_traits(oversized_traits, QUIRK_TRAIT)
@@ -107,6 +106,7 @@
 	var/obj/item/organ/stomach/charging/potential_charger = human_holder.get_organ_slot(ORGAN_SLOT_STOMACH)
 	if(istype(potential_charger))
 		potential_charger.remove_oversized()
+	REMOVE_TRAIT(human_holder, TRAIT_MOUNTED_GUN_FREESTYLE, REF(src))
 
 /datum/quirk/oversized/proc/on_gain_limb(datum/source, obj/item/bodypart/gained, special)
 	SIGNAL_HANDLER

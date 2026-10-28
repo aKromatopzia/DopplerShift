@@ -13,9 +13,11 @@
 	security_record_text = "Subject can psychically interact with objects from a distance."
 	security_threat = POWER_THREAT_MAJOR
 	value = 2
+	magic_flags = POWER_MAGIC_STANDARD
 	power_flags = POWER_HUMAN_ONLY | POWER_PROCESSES
 	action_path = /datum/action/cooldown/power/psyker/manipulate
 	required_powers = list(/datum/power/psyker_power/telekinesis) //given this lets you grab items from a distance this is basically a fluff requirement to explain why you can grab objects from a distance.
+	required_allow_subtypes = FALSE
 
 // Normally the golden rule is to let your action handle everything in powers; but in this case we need to actually make it so that we only have TRAIT_NO_UI_DISTANCE while we have a TK'd interface.
 /datum/power/psyker_power/manipulate/process(seconds_per_tick)
@@ -71,16 +73,26 @@
 // We use TRAIT_REMOTE_INTERACT (temporarily) as to bypass /mob/living/can_perform_action
 /datum/action/cooldown/power/psyker/manipulate/use_action(mob/living/user, atom/target)
 	ADD_TRAIT(user, TRAIT_REMOTE_INTERACT, src) // this is specifically for allowing us to bypass the range interaction gate.
-	new /obj/effect/temp_visual/telekinesis(get_turf(target))
+	new /obj/effect/temp_visual/telekinesis(get_turf(target)) // tk visual effect
+
+	// Sends a signal to the object to allow it to handle the interaction itself. If it does, we don't do any default interaction.
+	var/manipulate_signal_result = SEND_SIGNAL(target, COMSIG_ATOM_PSYKER_MANIPULATE, user, right_click)
+	if(manipulate_signal_result & COMPONENT_PSYKER_MANIPULATE_HANDLED)
+		finish_manipulation(user)
+		return TRUE
+
+	// The UI distance check can happen at the same time as attack_hand(), so this trait must be present before interacting.
+	var/allow_ui_interact = (target.interaction_flags_atom & INTERACT_ATOM_UI_INTERACT) && !is_type_in_typecache(target, ui_blacklist)
+	if(allow_ui_interact)
+		ADD_TRAIT(user, TRAIT_NO_UI_DISTANCE, origin_power)
+
 	if(right_click) // rmb
 		target.attack_hand_secondary(user)
 	else // lmb
 		target.attack_hand(user)
 
 	// interact with UI if present and not blacklisted.
-	var/allow_ui_interact = (target.interaction_flags_atom & INTERACT_ATOM_UI_INTERACT) && !is_type_in_typecache(target, ui_blacklist)
 	if(allow_ui_interact)
-		ADD_TRAIT(user, TRAIT_NO_UI_DISTANCE, origin_power) // we give it early so that the we count as being 'valid' before we reach the process.
 		target.ui_interact(user)
 
 		// We save the ui so we can add a filter to show it is being interacted with.
@@ -93,6 +105,7 @@
 				if(candidate.src_object == target || candidate.src_object.ui_host(user) == target)
 					ui = candidate
 					break
+		// Okay so now we should have an ui
 		if(ui)
 			var/filter_id = "manipulate_glow"
 			target.add_filter(filter_id, 1, list(type = "outline", color = POWER_COLOR_PSYKER, size = 2))
@@ -104,11 +117,17 @@
 
 			RegisterSignal(target, COMSIG_ATOM_DISPEL, PROC_REF(on_dispel))
 			RegisterSignal(ui, COMSIG_QDELETING, PROC_REF(on_ui_closed))
+		else // The UI terminated or never opened, so the temporary distance bypass is no longer needed.
+			REMOVE_TRAIT(user, TRAIT_NO_UI_DISTANCE, origin_power)
 
+	finish_manipulation(user)
+	return TRUE
+
+/// Cleans up the temporary interaction state and applies Manipulate's stress cost.
+/datum/action/cooldown/power/psyker/manipulate/proc/finish_manipulation(mob/living/user)
 	REMOVE_TRAIT(user, TRAIT_REMOTE_INTERACT, src)
 	right_click = FALSE
 	modify_stress(PSYKER_STRESS_TRIVIAL * 2)
-	return TRUE
 
 /// Ends the ongoing glow effect when the UI is closed.
 /datum/action/cooldown/power/psyker/manipulate/proc/on_ui_closed(datum/tgui/ui)

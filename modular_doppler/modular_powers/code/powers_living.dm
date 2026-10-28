@@ -73,6 +73,48 @@
 			return TRUE
 	return FALSE
 
+/// Returns TRUE if the mob has a power on the given path with any of the requested base magic flags.
+/mob/living/proc/has_magical_power_in_path(power_path, magic_flags = ALL)
+	for(var/datum/power/power in powers)
+		if(power.path == power_path && (initial(power.magic_flags) & magic_flags))
+			return TRUE
+	return FALSE
+
+/// Returns TRUE if the mob has a power on the given path with no base magic flags.
+/mob/living/proc/has_nonmagical_power_in_path(power_path)
+	for(var/datum/power/power in powers)
+		if(power.path == power_path && initial(power.magic_flags) == NONE)
+			return TRUE
+	return FALSE
+
+/**
+ * Checks whether the mob has any power in a given archetype.
+ *
+ * Arguments:
+ * * power_archetype - The archetype identifier to check against, e.g. POWER_ARCHETYPE_RESONANT
+ *
+ * Returns TRUE if any owned power matches the archetype, FALSE otherwise.
+ */
+/mob/living/proc/has_power_in_archetype(power_archetype)
+	for(var/datum/power/power in powers)
+		if(power.archetype == power_archetype)
+			return TRUE
+	return FALSE
+
+/// Returns TRUE if the mob has a power in the given archetype with any of the requested base magic flags.
+/mob/living/proc/has_magical_power_in_archetype(power_archetype, magic_flags = ALL)
+	for(var/datum/power/power in powers)
+		if(power.archetype == power_archetype && (initial(power.magic_flags) & magic_flags))
+			return TRUE
+	return FALSE
+
+/// Returns TRUE if the mob has a power in the given archetype with no base magic flags.
+/mob/living/proc/has_nonmagical_power_in_archetype(power_archetype)
+	for(var/datum/power/power in powers)
+		if(power.archetype == power_archetype && initial(power.magic_flags) == NONE)
+			return TRUE
+	return FALSE
+
 /**
  * Getter function for a mob's power
  *
@@ -132,6 +174,8 @@
 	var/lookup_name = name
 	if(ishuman(src))
 		var/mob/living/carbon/human/human_self = src
+		if(human_self.mind.assigned_role.faction != FACTION_STATION)
+			return
 		lookup_name = human_self.real_name
 
 	var/datum/record/crew/target = find_record(lookup_name)

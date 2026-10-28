@@ -10,29 +10,75 @@
 #define POWER_PRIORITY_BASIC "Basic"
 #define POWER_PRIORITY_ADVANCED "Advanced"
 
+/// Sources used when recording which preference-selected powers were granted to a mob.
+#define POWER_SOURCE_ROUNDSTART "roundstart"
+#define POWER_SOURCE_LATEJOIN "latejoin"
+#define POWER_SOURCE_GHOST_ROLE "ghost_role"
+#define POWER_SOURCE_ADMIN "admin"
+#define POWER_SOURCE_OTHER "other"
+
+/// Designations when referring to archetypes.
 #define POWER_ARCHETYPE_SORCEROUS "Sorcerous"
 #define POWER_ARCHETYPE_RESONANT "Resonant"
 #define POWER_ARCHETYPE_MORTAL "Mortal"
 
+/// UI/display sort order for power archetypes.
+#define POWER_ARCHETYPE_SORT_SORCEROUS 10
+#define POWER_ARCHETYPE_SORT_RESONANT 20
+#define POWER_ARCHETYPE_SORT_MORTAL 30
+
+/// Designations when referring to paths.
 #define POWER_PATH_THAUMATURGE "Thaumaturge"
 #define POWER_PATH_ENIGMATIST "Enigmatist"
 #define POWER_PATH_THEOLOGIST "Theologist"
 #define POWER_PATH_PSYKER "Psyker"
 #define POWER_PATH_CULTIVATOR "Cultivator"
 #define POWER_PATH_ABERRANT "Aberrant"
+#define POWER_PATH_IMBUED "Imbued"
 #define POWER_PATH_WARFIGHTER "Warfighter"
 #define POWER_PATH_EXPERT "Expert"
 #define POWER_PATH_AUGMENTED "Augmented"
+#define POWER_PATH_IRREGULAR "Irregular"
 
+/// UI/display sort order for power paths within their archetype.
+#define POWER_PATH_SORT_PRIMARY 10
+#define POWER_PATH_SORT_SECONDARY 20
+#define POWER_PATH_SORT_TERTIARY 30
+#define POWER_PATH_SORT_QUATERNARY 40
+
+/// Color association per power. Generally speaking if you want to use colors, use these.
 #define POWER_COLOR_THAUMATURGE "#7266dd"
-#define POWER_COLOR_ENIGMATIST "#26A300"
-#define POWER_COLOR_THEOLOGIST "#ddd166"
-#define POWER_COLOR_PSYKER "#FF3CC8"
+#define POWER_COLOR_ENIGMATIST "#439c27"
+#define POWER_COLOR_THEOLOGIST "#d1c029"
+#define POWER_COLOR_PSYKER "#b94398"
 #define POWER_COLOR_CULTIVATOR "#66c5dd"
 #define POWER_COLOR_ABERRANT "#4F3A57"
-#define POWER_COLOR_WARFIGHTER "#cc3d3d"
+#define POWER_COLOR_IMBUED "#e9874f"
+#define POWER_COLOR_WARFIGHTER "#ac2222"
 #define POWER_COLOR_EXPERT "#38495C"
-#define POWER_COLOR_AUGMENTED "#7C8287"
+#define POWER_COLOR_AUGMENTED "#6b6652"
+#define POWER_COLOR_IRREGULAR "#cacaca"
+
+/// Bitflags to determine what anti-magic a power interacts with/what type of magic it is.
+#define POWER_MAGIC_STANDARD (1<<0)
+#define POWER_MAGIC_MENTAL (1<<1)
+#define POWER_MAGIC_UNHOLY (1<<2)
+#define POWER_MAGIC_SCRYING (1<<3)
+
+// Signals for power actions and power-holder power mutations.
+/// Sent right before a power action resolves through use_action: (mob/living/user, atom/target)
+#define COMSIG_POWER_ACTION_USED "power_action_used"
+/// Sent when a power action successfully resolves (use_action returned TRUE): (mob/living/user, atom/target)
+#define COMSIG_POWER_ACTION_SUCCESS "power_action_success"
+/// Sent when a power is added to a mob's power list: (datum/power/added_power)
+#define COMSIG_MOB_POWER_ADDED "mob_power_added"
+/// Sent when a power is removed from a mob's power list: (datum/power/removed_power)
+#define COMSIG_MOB_POWER_REMOVED "mob_power_removed"
+/// Fired when a healing power collects modifiers for a snapshotted mob-healing calculation.
+/// Additive modifiers are summed onto 1 first. Multiplicative bonuses are converted into factors, compounded together, then applied to the additive result as one factor.
+/// Args: (atom/healing_target, list/additive_healing_modifiers, list/multiplicative_healing_modifiers)
+#define COMSIG_POWER_HEALING_MODIFIERS "power_healing_modifiers"
+
 /// Any traits granted by powers.
 #define POWER_TRAIT "power_trait"
 
@@ -42,6 +88,8 @@
 #define POWER_PROCESSES (1<<1)
 /// This power is has a visual aspect in that it changes how the player looks. Used in generating dummies.
 #define POWER_CHANGES_APPEARANCE (1<<2)
+/// This power either has healing mechanics which scale with power healing modifiers or provides those modifiers.
+#define POWER_HEALING (1<<3)
 
 /// Security record categories for powers.
 #define CAT_POWER_ALL 0
@@ -90,6 +138,14 @@
 // Trait that allows a mob to keep UIs open beyond their normal range.
 #define TRAIT_NO_UI_DISTANCE "no_ui_distance"
 
+/// Sent to an object before Psyker Manipulate performs its default interaction: (mob/living/user, right_click)
+#define COMSIG_ATOM_PSYKER_MANIPULATE "atom_psyker_manipulate"
+/// The target handled the Manipulate interaction and no default interaction should follow.
+#define COMPONENT_PSYKER_MANIPULATE_HANDLED (1<<0)
+
+/// Set when an effect has claimed responsibility for an attack's off-hand follow-up.
+#define OFFHAND_ATTACK_CLAIMED "offhand_attack_claimed"
+
 /**
  * SORCEROUS
  * All defines related to the sorcerous archetype.
@@ -133,6 +189,8 @@
 #define THAUMATURGE_HEMOMANCY_MAX_AFFINITY 6
 // How much blood cost scales from prep_cost (and UI display) for hemomancy.
 #define THAUMATURGE_HEMOMANCY_BLOOD_COST_MULTIPLIER 4
+/// Sent by thaumaturge get_affinity for external affinity riders: (datum/action/cooldown/power/thaumaturge/action)
+#define COMSIG_THAUMATURGE_AFFINITY_QUERY "thaumaturge_affinity_query"
 
 /**
  * SORCEROUS: ENIGMATIST
@@ -187,6 +245,10 @@
 
 // Trait made as to prevent duplicate smites.
 #define TRAIT_HAS_SMITING_STRIKE "has_smiting_strike"
+
+/// Fired by modular_doppler\modular_powers\code\powers\sorcerous\theologist\_theologist_root_twisted.dm to collect modifiers to damage conversion rates.
+/// Args: (list/twisted_conversion_modifiers)
+#define COMSIG_THEOLOGIST_TWISTED_CONVERSION_MODIFIERS "theologist_twisted_conversion_modifiers"
 
 // Standard Theologian costs
 #define THEOLOGIST_PIETY_TRIVIAL (THEOLOGIST_PIETY_MAX / 100)
@@ -256,9 +318,17 @@
 
 // Standard stress threshold value for the Psyker's organ.
 #define PSYKER_STRESS_STANDARD_THRESHOLD 100
+// Standard stress cap for psyker organs.
+#define PSYKER_ORGAN_BASE_THRESHOLD 75
+// Multiplier added to a Psyker organ's stress threshold for each point invested in the Psyker path.
+#define PSYKER_STRESS_THRESHOLD_MULTIPLIER_PER_POINT 0.05
 
 // Standard stress recovery per second before modifiers.
 #define PSYKER_STRESS_RECOVERY 1
+
+/// Fired by a Chemotropic gland to collect extra stress recovery rates.
+/// Args: (obj/item/organ/resonant/psyker/chemotropic/chemotropic_organ, list/recovery_candidates)
+#define COMSIG_PSYKER_CHEMOTROPIC_RECOVERY_CANDIDATES "psyker_chemotropic_recovery_candidates"
 
 // How much meditate recovers.
 #define PSYKER_STRESS_MEDITATION_POWER 10
@@ -284,7 +354,7 @@
 #define PSYKER_EVENT_RARITY_VERYRARE 10
 
 // Standard messages for Psyker Events
-#define PSYKER_EVENT_CATASTROPHIC_STANDARD_MESSAGE "As you strain your psychic powers past the breaking point, you are suddenly hit with a strange sense of clarity; as well as a feeling that something is very wrong."
+#define PSYKER_EVENT_CATASTROPHIC_STANDARD_MESSAGE "You are suddenly hit with a strange sense of clarity, yet also a strange underlying feeling that something is very wrong."
 
 // The trait for Psyker's Levitate power.
 #define TRAIT_PSYKER_LEVITATE_FLIGHT "psyker_levitate_flight"
@@ -297,8 +367,45 @@
  * All defines related to the aberrant powers.
  */
 
+/// The value that the below numbers scale off of, because hunger is a little arbitrary. The reason why is as follows:
+/// Starving is 150, Hungry is 250, Fed is 350, Well Fed is 450 Full is 550 and Fat is 600. Fat is a negative soft-cap (you can go above 600) and starving is effectively 0 for our power.
+/// So our effective 'range' we want to consider is 150-550 (Starving-Full). We calculate this delta and that is effectively the 0%-100% range of our power's 'resource'
+#define ABERRANT_HUNGER_COST_BASE (NUTRITION_LEVEL_FULL - NUTRITION_LEVEL_STARVING)
+
+// Hunger costs, as percentages of a stomach's usable resource range.
+#define ABERRANT_HUNGER_TRIVIAL (1 / 100)
+#define ABERRANT_HUNGER_MINOR (1 / 10)
+#define ABERRANT_HUNGER_MODERATE (1 / 5)
+#define ABERRANT_HUNGER_MAJOR (1 / 2)
+#define ABERRANT_HUNGER_EXTREME (1)
+
+/// Fired before a raking claw calculates its attack force.
+/// Arguments: (obj/item/raking_claw/claw, mob/living/target, list/attack_modifiers)
+#define COMSIG_RAKING_CLAW_MODIFY_ATTACK "raking_claw_modify_attack"
+/// Fired after a raking claw applies damage to a living target.
+/// Arguments: (obj/item/raking_claw/claw, mob/living/target, damage_dealt, unmitigated_damage, obj/item/bodypart/hit_bodypart)
+#define COMSIG_RAKING_CLAW_AFTER_DAMAGE "raking_claw_after_damage"
+/// Fired after a raking claw finishes butchering a living mob.
+/// Arguments: (obj/item/raking_claw/claw, mob/living/target)
+#define COMSIG_RAKING_CLAW_BUTCHERED "raking_claw_butchered"
+
+/**
+ * RESONANT: IMBUED
+ * All defines related to the imbued powers.
+ */
+
+/// Fired by /datum/power/imbued_root/enchanted to collect additive percent bonuses to cooldown recovery.
+/// Args: (list/recovery_bonus_percents)
+#define COMSIG_IMBUED_ENCHANTED_RECOVERY_MODIFIERS "imbued_enchanted_recovery_modifiers"
+
 // Trait that lets you use the riftwalker mechanic.
-#define TRAIT_ABERRANT_RIFTWALKER "riftwalker"
+#define TRAIT_IMBUED_RIFTWALKER "riftwalker"
+// Trait that lets you see the riftwalker mechanic.
+#define TRAIT_IMBUED_RIFTWALKER_SIGHT_ONLY "riftwalker_sight_only"
+// Chance for a standard rift pair to yield a bluespace anomaly core when displaced.
+#define RIFTWALKER_STANDARD_RIFT_BLUESPACE_CORE_CHANCE 15
+// Chance for a red rift pair to yield a bluespace anomaly core when displaced.
+#define RIFTWALKER_RED_RIFT_BLUESPACE_CORE_CHANCE 30
 
 /**MORTAL DEFINES
 * I'm literally just using this to define Breacher Knuckle right now

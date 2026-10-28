@@ -1,7 +1,9 @@
 
-#define DOPPLER_SAVEFILE_VERSION_MAX 1
+#define DOPPLER_SAVEFILE_VERSION_MAX 3
 
 #define VERSION_NEW_POWERS 1
+#define VERSION_BESTIAL_RENAME 2
+#define VERSION_ETHEREAL_MUTANT_COLOR 3
 
 #define SHOULD_UPDATE_DOPPLER_DATA(version) (version < DOPPLER_SAVEFILE_VERSION_MAX)
 
@@ -24,6 +26,12 @@
 	// Version for old powers system
 	if(current_version < VERSION_NEW_POWERS)
 		nuke_old_powers(save_data)
+	// Version for the Beastial Body -> Bestial Body spelling fix
+	if(current_version < VERSION_BESTIAL_RENAME)
+		rename_beastial_to_bestial(save_data)
+	// Transfers legacy Ethereal palette selections to the standard mutant color preference.
+	if(current_version < VERSION_ETHEREAL_MUTANT_COLOR)
+		migrate_ethereal_color_to_mutant_color(save_data)
 
 /datum/preferences/proc/save_character_doppler(list/save_data)
 	save_data["languages"] = languages
@@ -34,4 +42,6 @@
 
 #undef DOPPLER_SAVEFILE_VERSION_MAX
 #undef VERSION_NEW_POWERS
+#undef VERSION_BESTIAL_RENAME
+#undef VERSION_ETHEREAL_MUTANT_COLOR
 #undef SHOULD_UPDATE_DOPPLER_DATA

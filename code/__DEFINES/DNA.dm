@@ -94,6 +94,7 @@
 #define FEATURE_TAIL_DOG "tail_dog"
 #define FEATURE_TAIL_FOX "tail_fox"
 #define FEATURE_TAIL_BUNNY "tail_bunny"
+#define FEATURE_TAIL_ETHEREAL "tail_ethereal" // DOPPLER ADDITION
 #define FEATURE_TAIL_MOUSE "tail_mouse"
 #define FEATURE_TAIL_BIRD "tail_bird"
 #define FEATURE_TAIL_DEER "tail_deer"
@@ -120,11 +121,12 @@
 #define FEATURE_FLUFF_COLORS "fluff_colors"
 #define FEATURE_POD_HAIR_COLORS "pod_hair_colors"
 #define FEATURE_SYNTHETIC_CHARGING_METHOD "synthetic_charging_method"
+#define FEATURE_HOLO_COLOR "holo_color"
 // DOPPLER FEATURES END
 
 // Other
 #define FEATURE_WINGS "wings"
-#define FEATURE_WINGS_OPEN "[FEATURE_WINGS]_open"
+#define FEATURE_WINGS_OPEN "[FEATURE_WINGS]open"
 #define FEATURE_TAIL_MONKEY "tail_monkey"
 #define FEATURE_TAIL_XENO "tail_xeno"
 #define FEATURE_TAILSPINES "tailspines" // Different from regular spines, these appear on tails

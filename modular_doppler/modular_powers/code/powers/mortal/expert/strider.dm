@@ -10,15 +10,20 @@
 	value = 6
 	required_powers = list(/datum/power/expert/heavy_lifter)
 
+	menu_icon = 'icons/obj/clothing/suits/armor.dmi'
+	menu_icon_state = "riot"
+
 	/// how much xp we start with on average. Since the prerequisite skill gives journeyman, we subtract that.
 	var/starting_xp_base = SKILL_EXP_MASTER - SKILL_EXP_JOURNEYMAN
 
 /datum/power/expert/strider/post_add()
 	..()
+	ADD_TRAIT(power_holder, TRAIT_MOUNTED_GUN_FREESTYLE, REF(src))
 	power_holder.add_movespeed_mod_immunities(src, /datum/movespeed_modifier/equipment_speedmod)
 	power_holder.mind?.adjust_experience(/datum/skill/athletics, starting_xp_base)
 
 /datum/power/expert/strider/remove()
+	REMOVE_TRAIT(power_holder, TRAIT_MOUNTED_GUN_FREESTYLE, REF(src))
 	power_holder.remove_movespeed_mod_immunities(src, (/datum/movespeed_modifier/equipment_speedmod))
 	power_holder.mind?.adjust_experience(/datum/skill/athletics, -starting_xp_base)
 
